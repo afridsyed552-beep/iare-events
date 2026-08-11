@@ -1,34 +1,18 @@
-import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { motion } from "framer-motion";
-
-// Code-split the heavy three.js scene so the rest of the app stays fast.
-const HeroScene = lazy(() => import("../three/HeroScene"));
+import LiveGround from "./LiveGround";
 
 export function Hero3D({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setReady(true), 60);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <div className="relative min-h-[92vh] flex flex-col items-center justify-center overflow-hidden">
-      {/* 3D canvas */}
+      {/* live animated sports ground */}
       <div className="absolute inset-0">
-        {ready && (
-          <Suspense
-            fallback={
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(124,58,237,0.25),transparent_60%)]" />
-            }
-          >
-            <HeroScene />
-          </Suspense>
-        )}
+        <LiveGround />
       </div>
 
       {/* readability gradients */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07070f]/70 via-transparent to-[#07070f]" />
-      <div className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_center,transparent_30%,#07070f_95%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07070f]/75 via-transparent to-[#07070f]" />
+      <div className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_center,transparent_35%,#07070f_96%)]" />
 
       {/* content */}
       <div className="relative z-10 flex flex-col items-center text-center px-4 pt-24 pb-16 max-w-4xl">
