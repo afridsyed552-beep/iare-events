@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, SlidersHorizontal, LayoutGrid, List, CalendarX2 } from "lucide-react";
+import { Search, SlidersHorizontal, LayoutGrid, List, CalendarX2, PlusCircle } from "lucide-react";
 import { useAllEvents } from "../store";
 import EventCard from "../components/EventCard";
 import EmptyState from "../components/EmptyState";
@@ -70,12 +70,23 @@ export default function Events() {
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-28 pb-10">
       <FadeUp>
-        <h1 className="font-display text-4xl sm:text-5xl font-bold text-white tracking-tight">
-          Events <span className="text-gradient">hub</span>
-        </h1>
-        <p className="mt-3 text-white/55 max-w-xl">
-          Everything happening on campus — filter by category, search, and RSVP before seats run out.
-        </p>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display text-4xl sm:text-5xl font-bold text-white tracking-tight">
+              Events <span className="text-gradient">hub</span>
+            </h1>
+            <p className="mt-3 text-white/55 max-w-xl">
+              Everything happening on campus — filter by category, search, and RSVP before seats run out.
+            </p>
+          </div>
+          <Link
+            to="/create"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 px-6 py-3.5 text-sm font-bold text-white shadow-[0_8px_32px_rgba(124,58,237,0.5)] hover:shadow-[0_8px_44px_rgba(124,58,237,0.75)] hover:brightness-110 transition-all group"
+          >
+            <PlusCircle size={17} className="transition-transform group-hover:rotate-90" />
+            Add new event
+          </Link>
+        </div>
       </FadeUp>
 
       {/* search + controls */}
@@ -204,7 +215,6 @@ export default function Events() {
 }
 
 // Compact list row (used in list view)
-import { Link } from "react-router-dom";
 import { CalendarDays, MapPin, Users } from "lucide-react";
 import type { EventItem } from "../types";
 import { clubById } from "../data";
