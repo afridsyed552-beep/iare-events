@@ -32,10 +32,19 @@ export default function EventCard({ event, index = 0 }: { event: EventItem; inde
         {/* Cover */}
         <div
           className="relative h-44 overflow-hidden"
-          style={gradientStyle(event.gradient[0], event.gradient[1], 140)}
+          style={
+            event.coverImage
+              ? { backgroundImage: `url(${event.coverImage})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : gradientStyle(event.gradient[0], event.gradient[1], 140)
+          }
         >
-          <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_70%_20%,white_0%,transparent_45%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.18)_1px,transparent_1px)] [background-size:18px_18px]" />
+          {!event.coverImage && (
+            <>
+              <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_70%_20%,white_0%,transparent_45%)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.18)_1px,transparent_1px)] [background-size:18px_18px]" />
+            </>
+          )}
+          {event.coverImage && <div className="absolute inset-0 bg-gradient-to-t from-[#07070f]/60 via-transparent to-[#07070f]/10" />}
           <div className="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/15 blur-2xl" />
           <span className="absolute top-4 left-5 text-5xl drop-shadow-lg">{event.emoji}</span>
 

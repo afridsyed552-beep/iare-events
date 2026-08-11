@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   PartyPopper, CalendarDays, Clock, MapPin, Users, Image as ImageIcon,
-  ArrowRight, Sparkles, ShieldCheck,
+  ArrowRight, Sparkles, ShieldCheck, Upload, X,
 } from "lucide-react";
 import { useStore } from "../store";
 import { clubs } from "../data";
@@ -42,7 +42,33 @@ export default function CreateEvent() {
   const [emoji, setEmoji] = useState("🎤");
   const [gradientIdx, setGradientIdx] = useState(0);
   const [tags, setTags] = useState("");
+  const [coverImage, setCoverImage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Please choose an image file", "error");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      toast("Image is too large — keep it under 4 MB", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setCoverImage(reader.result as string);
+    reader.onerror = () => toast("Couldn't read that image", "error");
+    reader.readAsDataURL(file);
+  };
+
+  const coverStyle: React.CSSProperties = coverImage
+    ? {
+        backgroundImage: `url(${coverImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : gradientStyle(gradients[gradientIdx][0], gradients[gradientIdx][1], 140);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +99,7 @@ export default function CreateEvent() {
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 6),
         gradient: gradients[gradientIdx]!,
         emoji,
+        coverImage: coverImage ?? undefined,
       };
       addEvent(event);
       toast("Event published! 🎉 It's live on the Events page.", "success");
@@ -182,6 +209,45 @@ export default function CreateEvent() {
               <label className="form-label flex items-center gap-2">
                 <ImageIcon size={14} className="text-white/40" /> Cover look & icon
               </label>
+
+              {/* upload cover image */}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFile(e.target.files?.[0])}
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {coverImage ? (
+                  <div className="relative">
+                    <img
+                      src={coverImage}
+                      alt="Cover preview"
+                      className="h-16 w-28 rounded-xl object-cover border border-white/20 shadow-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCoverImage(null)}
+                      className="absolute -top-2 -right-2 grid place-items-center h-6 w-6 rounded-full bg-rose-500 text-white border border-white/30 shadow hover:bg-rose-600 transition-colors"
+                      aria-label="Remove cover image"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-dashed border-cyan-400/40 bg-cyan-500/8 px-4 py-3 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/15 hover:border-cyan-400/60 transition-all"
+                >
+                  <Upload size={14} /> {coverImage ? "Replace image" : "Upload cover image"}
+                </button>
+                <span className="text-[11px] text-white/35">JPG / PNG · max 4 MB</span>
+              </div>
+              {coverImage && (
+                <p className="mt-2 text-[11px] text-emerald-300/90">✓ Image applied — it will replace the gradient on the event card.</p>
+              )}
               <div className="mt-2.5 flex flex-wrap gap-2">
                 {gradients.map((g, i) => (
                   <button
@@ -239,9 +305,14 @@ export default function CreateEvent() {
                 <Sparkles size={15} className="text-amber-300" /> Live preview
               </h3>
               <div className="mt-4 rounded-2xl overflow-hidden border border-white/10">
-                <div className="relative h-36 overflow-hidden" style={gradientStyle(gradients[gradientIdx][0], gradients[gradientIdx][1], 140)}>
-                  <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_70%_20%,white_0%,transparent_45%)]" />
-                  <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.18)_1px,transparent_1px)] [background-size:18px_18px]" />
+                <div className="relative h-36 overflow-hidden" style={coverStyle}>
+                  {!coverImage && (
+                    <>
+                      <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_70%_20%,white_0%,transparent_45%)]" />
+                      <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.18)_1px,transparent_1px)] [background-size:18px_18px]" />
+                    </>
+                  )}
+                  {coverImage && <div className="absolute inset-0 bg-[#07070f]/25" />}
                   <span className="absolute top-4 left-5 text-5xl drop-shadow-lg">{emoji}</span>
                   <div className="absolute bottom-4 left-5 flex items-center gap-2">
                     <div className="rounded-xl bg-black/45 backdrop-blur border border-white/15 px-3 py-1.5 text-center leading-none">

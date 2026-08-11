@@ -231,9 +231,13 @@ function EventRow({ event }: { event: EventItem }) {
     >
       <div
         className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-xl overflow-hidden grid place-items-center text-2xl"
-        style={gradientStyle(event.gradient[0], event.gradient[1], 135)}
+        style={
+          event.coverImage
+            ? { backgroundImage: `url(${event.coverImage})`, backgroundSize: "cover", backgroundPosition: "center" }
+            : gradientStyle(event.gradient[0], event.gradient[1], 135)
+        }
       >
-        <span className="drop-shadow">{event.emoji}</span>
+        {!event.coverImage && <span className="drop-shadow">{event.emoji}</span>}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-white/45">

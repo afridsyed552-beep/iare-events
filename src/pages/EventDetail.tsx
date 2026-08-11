@@ -108,10 +108,21 @@ export default function EventDetail() {
   return (
     <div className="relative pt-16">
       {/* ===== hero band ===== */}
-      <div className="relative h-[42vh] min-h-[320px] overflow-hidden" style={gradientStyle(event.gradient[0], event.gradient[1], 135)}>
+      <div
+        className="relative h-[42vh] min-h-[320px] overflow-hidden"
+        style={
+          event.coverImage
+            ? { backgroundImage: `url(${event.coverImage})`, backgroundSize: "cover", backgroundPosition: "center" }
+            : gradientStyle(event.gradient[0], event.gradient[1], 135)
+        }
+      >
         <div className="absolute inset-0 bg-[#07070f]/55" />
-        <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_75%_15%,white_0%,transparent_45%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.15)_1px,transparent_1px)] [background-size:22px_22px]" />
+        {!event.coverImage && (
+          <>
+            <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_75%_15%,white_0%,transparent_45%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.15)_1px,transparent_1px)] [background-size:22px_22px]" />
+          </>
+        )}
         <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 h-56 w-[90%] rounded-[100%] bg-black/30 blur-3xl" />
 
         <div className="absolute inset-0 mx-auto max-w-7xl px-4 sm:px-6 flex flex-col justify-end pb-24">

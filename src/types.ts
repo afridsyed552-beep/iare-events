@@ -60,6 +60,7 @@ export interface EventItem {
   emoji: string;
   isFeatured?: boolean;
   prizes?: string;
+  coverImage?: string; // data URL of an uploaded cover photo
 }
 
 export interface Announcement {
