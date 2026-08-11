@@ -11,10 +11,26 @@ interface Particle {
   sparkle: boolean;
 }
 
+// Inline SVG paper plane (violet→cyan gradient, white fold crease) — no network needed.
+const PLANE_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="55%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <path d="M4 29 L58 7 L35 41 L58 55 L4 29 Z" fill="url(#g)" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M35 41 L58 7" stroke="#ffffff" stroke-opacity="0.5" stroke-width="1.6" stroke-linejoin="round"/>
+</svg>`;
+const PLANE_URL = `data:image/svg+xml;utf8,${encodeURIComponent(PLANE_SVG)}`;
+
 /**
- * Premium cursor trail — a comet head chases the mouse with spring-like
- * smoothing while a trail of glowing particles flies behind it.
- * Pure canvas, pointer-events-none, respects prefers-reduced-motion.
+ * Premium cursor flight — a paper plane (SVG image) chases the cursor with
+ * spring physics, banks into the direction of travel, and leaves a trail of
+ * glowing particles + sparkles behind it. Pure canvas, pointer-events-none,
+ * respects prefers-reduced-motion.
  */
 export default function CursorTrail() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,6 +42,9 @@ export default function CursorTrail() {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const plane = new Image();
+    plane.src = PLANE_URL;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let w = 0;
@@ -49,12 +68,15 @@ export default function CursorTrail() {
     let raf = 0;
     let active = false;
     let lastEmit = 0;
+    let angle = 0; // plane heading (radians)
+    let fade = 1; // fade out when cursor leaves
 
     const hues = [258, 190, 320, 45]; // violet, cyan, pink, amber
 
     const onMove = (e: MouseEvent) => {
       mouse.tx = e.clientX;
       mouse.ty = e.clientY;
+      fade = 1;
       if (!active) {
         active = true;
         last.x = mouse.x = mouse.tx;
@@ -89,23 +111,41 @@ export default function CursorTrail() {
     };
 
     const loop = () => {
+      // fade out after cursor leaves the window
       if (!active) {
-        raf = 0;
-        ctx.clearRect(0, 0, w, h);
-        return;
+        fade -= 0.06;
+        if (fade <= 0) {
+          raf = 0;
+          ctx.clearRect(0, 0, w, h);
+          return;
+        }
       }
+
       const m = mouse;
-      // smooth chase — spring-like lerp
-      m.x += (m.tx - m.x) * 0.22;
-      m.y += (m.ty - m.y) * 0.22;
+      const prevX = m.x;
+      const prevY = m.y;
+      // spring-like chase
+      m.x += (m.tx - m.x) * 0.26;
+      m.y += (m.ty - m.y) * 0.26;
 
       const now = performance.now();
       const dx = m.x - last.x;
       const dy = m.y - last.y;
       const dist = Math.hypot(dx, dy);
 
-      // emit a trail of particles while moving
-      if (dist > 0.8 && now - lastEmit > 14) {
+      // heading: face the direction of travel (image points right = 0 rad)
+      if (dist > 1.5) {
+        const target = Math.atan2(dy, dx);
+        let diff = ((target - angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        angle += diff * 0.22;
+      }
+
+      // speed → slight scale boost for flight feel
+      const speed = Math.hypot(m.x - prevX, m.y - prevY);
+      const scale = active ? 1 + Math.min(0.25, speed * 0.012) : 1;
+
+      // emit trail particles while moving
+      if (active && dist > 0.8 && now - lastEmit > 14) {
         const count = Math.min(3, 1 + Math.floor(dist / 5));
         for (let i = 0; i < count; i++) {
           const t = i / count;
@@ -127,7 +167,7 @@ export default function CursorTrail() {
 
       ctx.clearRect(0, 0, w, h);
 
-      // particles
+      // trail particles
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]!;
         p.x += p.vx;
@@ -150,23 +190,27 @@ export default function CursorTrail() {
         }
       }
 
-      // comet head — glowing orb chasing the cursor
-      const glow = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, 22);
-      glow.addColorStop(0, "rgba(255,255,255,0.95)");
-      glow.addColorStop(0.25, "rgba(167,139,250,0.55)");
-      glow.addColorStop(1, "rgba(167,139,250,0)");
-      ctx.beginPath();
-      ctx.arc(m.x, m.y, 22, 0, Math.PI * 2);
-      ctx.fillStyle = glow;
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(m.x, m.y, 2.6, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(255,255,255,0.95)";
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = "#a78bfa";
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      // ---- paper plane image ----
+      if (plane.complete && plane.naturalWidth > 0) {
+        ctx.save();
+        ctx.translate(m.x, m.y);
+        ctx.rotate(angle);
+        ctx.scale(scale, scale);
+        ctx.globalAlpha = fade;
+        // glow under the plane
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = "rgba(139,92,246,0.85)";
+        const size = 42;
+        ctx.drawImage(plane, -size / 2, -size / 2, size, size);
+        ctx.restore();
+        ctx.shadowBlur = 0;
+      } else {
+        // fallback while the image loads — small glowing dot
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 4 * fade, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(167,139,250,0.9)";
+        ctx.fill();
+      }
 
       raf = requestAnimationFrame(loop);
     };
