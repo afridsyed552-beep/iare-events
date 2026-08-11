@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Menu, X, Search, LogOut, PlusCircle, Compass, UserRound } from "lucide-react";
+import { Menu, X, Search, LogOut, PlusCircle, Compass, UserRound, Ticket } from "lucide-react";
 import { useStore } from "../store";
 import { cx } from "./ui";
 
@@ -126,6 +126,12 @@ export default function Navbar() {
           {user ? (
             <div className="flex items-center gap-2">
               <Link
+                to="/registrations"
+                className="hidden xl:inline-flex items-center gap-1.5 h-10 px-3.5 rounded-full text-sm font-medium text-white/70 hover:text-white bg-white/5 border border-white/10 hover:border-white/25 transition-colors"
+              >
+                <Ticket size={15} className="text-cyan-400" /> Registrations
+              </Link>
+              <Link
                 to="/profile"
                 className="flex items-center gap-2 h-10 pl-1 pr-3 rounded-full bg-white/5 border border-white/10 hover:border-white/25 transition-colors"
               >
@@ -211,13 +217,32 @@ export default function Navbar() {
             >
               <PlusCircle size={15} /> Create
             </Link>
-            <Link
-              to={user ? "/profile" : "/auth"}
-              onClick={() => setOpen(false)}
-              className="col-span-2 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/80"
-            >
-              <Compass size={15} /> {user ? "My Profile" : "Sign in / Register"}
-            </Link>
+            {user ? (
+              <>
+                <Link
+                  to="/registrations"
+                  onClick={() => setOpen(false)}
+                  className="col-span-2 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/80"
+                >
+                  <Ticket size={15} className="text-cyan-400" /> My Registrations
+                </Link>
+                <Link
+                  to="/profile"
+                  onClick={() => setOpen(false)}
+                  className="col-span-2 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/80"
+                >
+                  <Compass size={15} /> My Profile
+                </Link>
+              </>
+            ) : (
+              <Link
+                to="/auth"
+                onClick={() => setOpen(false)}
+                className="col-span-2 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/80"
+              >
+                <Compass size={15} /> Sign in / Register
+              </Link>
+            )}
           </div>
         </motion.div>
       )}

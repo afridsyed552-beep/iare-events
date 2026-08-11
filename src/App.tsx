@@ -8,6 +8,7 @@ import ClubDetail from "./pages/ClubDetail";
 import Calendar from "./pages/Calendar";
 import Announcements from "./pages/Announcements";
 import Profile from "./pages/Profile";
+import Registrations from "./pages/Registrations";
 import Auth from "./pages/Auth";
 import CreateEvent from "./pages/CreateEvent";
 import Search from "./pages/Search";
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/announcements" element={<Announcements />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/registrations" element={<Registrations />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/create" element={<CreateEvent />} />
         <Route path="/search" element={<Search />} />

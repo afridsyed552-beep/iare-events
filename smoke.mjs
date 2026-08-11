@@ -46,6 +46,7 @@ const routes = [
   ["/calendar", "Calendar"],
   ["/announcements", "Announcements"],
   ["/profile", "Profile-guest"],
+  ["/registrations", "Registrations-guest"],
   ["/auth", "Auth"],
   ["/create", "CreateEvent"],
   ["/search", "Search"],

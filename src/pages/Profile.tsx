@@ -71,10 +71,16 @@ export default function Profile() {
                 </span>
               )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/registrations"
+                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-600 px-5 py-3 text-sm font-bold text-white shadow-[0_8px_28px_rgba(34,211,238,0.4)] hover:brightness-110 transition-all"
+              >
+                <Ticket size={16} /> My registrations
+              </Link>
               <Link
                 to="/create"
-                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-5 py-3 text-sm font-bold text-white hover:brightness-110 transition-all"
+                className="inline-flex items-center gap-2 rounded-2xl bg-white/6 border border-white/12 px-5 py-3 text-sm font-bold text-white hover:bg-white/12 transition-all"
               >
                 <PartyPopper size={16} /> Host event
               </Link>
@@ -94,17 +100,25 @@ export default function Profile() {
           {/* stat strip */}
           <div className="relative mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: <Ticket size={16} className="text-violet-400" />, label: "Going", value: going.length },
-              { icon: <Bookmark size={16} className="text-amber-300" />, label: "Saved", value: saved.length },
-              { icon: <Users size={16} className="text-cyan-400" />, label: "Clubs", value: myClubs.length },
-              { icon: <Zap size={16} className="text-emerald-400" />, label: "Points", value: points },
+              { icon: <Ticket size={16} className="text-violet-400" />, label: "Going", value: going.length, to: "/registrations" },
+              { icon: <Bookmark size={16} className="text-amber-300" />, label: "Saved", value: saved.length, to: "/registrations" },
+              { icon: <Users size={16} className="text-cyan-400" />, label: "Clubs", value: myClubs.length, to: "/clubs" },
+              { icon: <Zap size={16} className="text-emerald-400" />, label: "Points", value: points, to: undefined },
             ].map((s) => (
-              <div key={s.label} className="rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur px-4 py-4">
+              <Link
+                key={s.label}
+                to={s.to ?? "#"}
+                onClick={(e) => { if (!s.to) e.preventDefault(); }}
+                className={cx(
+                  "rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur px-4 py-4 transition-all",
+                  s.to ? "hover:border-white/25 hover:bg-white/[0.08]" : "cursor-default"
+                )}
+              >
                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
                   {s.icon} {s.label}
                 </div>
                 <div className="mt-1.5 font-display text-2xl font-bold text-white">{s.value}</div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
