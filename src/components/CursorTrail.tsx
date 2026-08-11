@@ -11,23 +11,12 @@ interface Particle {
   sparkle: boolean;
 }
 
-// Inline SVG paper plane (violet→cyan gradient, white fold crease) — no network needed.
-const PLANE_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#a78bfa"/>
-      <stop offset="55%" stop-color="#818cf8"/>
-      <stop offset="100%" stop-color="#22d3ee"/>
-    </linearGradient>
-  </defs>
-  <path d="M4 29 L58 7 L35 41 L58 55 L4 29 Z" fill="url(#g)" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M35 41 L58 7" stroke="#ffffff" stroke-opacity="0.5" stroke-width="1.6" stroke-linejoin="round"/>
-</svg>`;
-const PLANE_URL = `data:image/svg+xml;utf8,${encodeURIComponent(PLANE_SVG)}`;
+// Real flight image — AI-generated glowing glass paper plane, keyed to a
+// transparent cutout and bundled locally (public/images/plane-cutout.png).
+const PLANE_SRC = "/images/plane-cutout.png";
 
 /**
- * Premium cursor flight — a paper plane (SVG image) chases the cursor with
+ * Premium cursor flight — a glowing flight image chases the cursor with
  * spring physics, banks into the direction of travel, and leaves a trail of
  * glowing particles + sparkles behind it. Pure canvas, pointer-events-none,
  * respects prefers-reduced-motion.
@@ -44,7 +33,7 @@ export default function CursorTrail() {
     if (!ctx) return;
 
     const plane = new Image();
-    plane.src = PLANE_URL;
+    plane.src = PLANE_SRC;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let w = 0;
@@ -190,20 +179,30 @@ export default function CursorTrail() {
         }
       }
 
-      // ---- paper plane image ----
+      // ---- flight image ----
       if (plane.complete && plane.naturalWidth > 0) {
+        // maintain the image's aspect ratio; ~46px tall at 1x
+        const aspect = plane.naturalWidth / plane.naturalHeight;
+        const hh = 46 * scale * fade;
+        const hw = hh * aspect;
         ctx.save();
         ctx.translate(m.x, m.y);
         ctx.rotate(angle);
-        ctx.scale(scale, scale);
-        ctx.globalAlpha = fade;
-        // glow under the plane
-        ctx.shadowBlur = 18;
-        ctx.shadowColor = "rgba(139,92,246,0.85)";
-        const size = 42;
-        ctx.drawImage(plane, -size / 2, -size / 2, size, size);
+        // glow pass under the plane
+        ctx.shadowBlur = 22;
+        ctx.shadowColor = "rgba(139,92,246,0.9)";
+        ctx.drawImage(plane, -hw / 2, -hh / 2, hw, hh);
         ctx.restore();
         ctx.shadowBlur = 0;
+        // subtle bloom pass (additive) for a luminous neon feel
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.22 * fade;
+        ctx.translate(m.x, m.y);
+        ctx.rotate(angle);
+        ctx.drawImage(plane, -hw / 2, -hh / 2, hw, hh);
+        ctx.restore();
+        ctx.globalAlpha = 1;
       } else {
         // fallback while the image loads — small glowing dot
         ctx.beginPath();
