@@ -6,6 +6,7 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import Toasts from "./Toasts";
 import CursorTrail from "./CursorTrail";
+import BackButton from "./BackButton";
 import { AmbientOrbs } from "./visuals";
 
 function ScrollToTop() {
@@ -54,6 +55,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <Footer />
+      <BackButton />
       <Fab />
       <CursorTrail />
       <Toasts />
