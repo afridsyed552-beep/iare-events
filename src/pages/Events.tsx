@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, SlidersHorizontal, LayoutGrid, List, CalendarX2, PlusCircle } from "lucide-react";
-import { useAllEvents } from "../store";
+import { Search, SlidersHorizontal, LayoutGrid, List, CalendarX2, PlusCircle, Ticket } from "lucide-react";
+import { useAllEvents, useStore } from "../store";
 import EventCard from "../components/EventCard";
 import EmptyState from "../components/EmptyState";
 import { FadeUp } from "../components/visuals";
@@ -28,10 +28,19 @@ export default function Events() {
   const qParam = params.get("q") ?? "";
 
   const all = useAllEvents();
+  const user = useStore((s) => s.user);
+  const rsvps = useStore((s) => s.rsvps);
+  const toast = useStore((s) => s.toast);
   const [query, setQuery] = useState(qParam);
   const [sort, setSort] = useState("soonest");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [showPast, setShowPast] = useState(false);
+  const [registeredOnly, setRegisteredOnly] = useState(false);
+
+  const myRegistrations = useMemo(
+    () => all.filter((e) => rsvps[e.id] === "going").map((e) => e.id),
+    [all, rsvps]
+  );
 
   const setCategory = (c: string) => {
     const next = new URLSearchParams(params);
@@ -40,9 +49,18 @@ export default function Events() {
     setParams(next, { replace: true });
   };
 
+  const toggleRegistered = () => {
+    if (!user) {
+      toast("Sign in to see your registered events", "info");
+      return;
+    }
+    setRegisteredOnly((v) => !v);
+  };
+
   const filtered = useMemo(() => {
     let list = all.filter((e) => {
       if (catParam !== "All" && e.category !== catParam) return false;
+      if (registeredOnly && rsvps[e.id] !== "going") return false;
       if (query.trim() && !`${e.title} ${e.description} ${e.venue} ${e.tags.join(" ")}`
         .toLowerCase().includes(query.trim().toLowerCase())) return false;
       if (!showPast && isPast(e.date)) return false;
@@ -65,7 +83,7 @@ export default function Events() {
         list = [...list].sort((a, b) => a.date.localeCompare(b.date));
     }
     return list;
-  }, [all, catParam, query, sort, showPast]);
+  }, [all, catParam, query, sort, showPast, registeredOnly, rsvps]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-28 pb-10">
@@ -108,6 +126,25 @@ export default function Events() {
             />
           </div>
           <div className="flex gap-3">
+            {/* registered-only toggle */}
+            <button
+              onClick={toggleRegistered}
+              title={user ? "Show only events you registered for" : "Sign in to use this filter"}
+              className={cx(
+                "inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all whitespace-nowrap",
+                registeredOnly
+                  ? "border-transparent bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_4px_20px_rgba(16,185,129,0.45)]"
+                  : "border-white/12 bg-white/[0.04] text-white/60 hover:text-white hover:border-white/25"
+              )}
+            >
+              <Ticket size={15} className={registeredOnly ? "" : "text-emerald-400"} />
+              {registeredOnly ? "Showing registered" : "Registered"}
+              {user && myRegistrations.length > 0 && !registeredOnly && (
+                <span className="grid place-items-center h-5 min-w-5 px-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[10px] font-bold text-emerald-300">
+                  {myRegistrations.length}
+                </span>
+              )}
+            </button>
             <div className="relative flex-1 lg:w-52">
               <SlidersHorizontal size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none" />
               <select value={sort} onChange={(e) => setSort(e.target.value)} className="field pl-10 appearance-none cursor-pointer">
@@ -156,6 +193,7 @@ export default function Events() {
           <span>
             {filtered.length} event{filtered.length === 1 ? "" : "s"}
             {catParam !== "All" && ` · ${catParam}`}
+            {registeredOnly && " · only registered"}
           </span>
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -172,22 +210,46 @@ export default function Events() {
       {/* results */}
       <div className="mt-7">
         {filtered.length === 0 ? (
-          <EmptyState
-            icon={<CalendarX2 size={26} />}
-            title="No events found"
-            subtitle="Try a different category, clear the search, or check back soon — new events drop every week."
-            action={
-              <button
-                onClick={() => {
-                  setQuery("");
-                  setCategory("All");
-                }}
-                className="rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 px-5 py-2.5 text-xs font-bold text-white"
-              >
-                Clear filters
-              </button>
-            }
-          />
+          registeredOnly ? (
+            <EmptyState
+              icon={<Ticket size={26} />}
+              title="You haven't registered for any events yet"
+              subtitle="Tap RSVP on an event and it will show up here — or switch off the 'Registered' filter to browse everything."
+              action={
+                <div className="flex flex-wrap justify-center gap-2.5">
+                  <button
+                    onClick={() => setRegisteredOnly(false)}
+                    className="rounded-full bg-white/8 border border-white/15 px-5 py-2.5 text-xs font-bold text-white hover:bg-white/14 transition-colors"
+                  >
+                    Show all events
+                  </button>
+                  <Link
+                    to="/registrations"
+                    className="rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-5 py-2.5 text-xs font-bold text-white"
+                  >
+                    View my tickets
+                  </Link>
+                </div>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={<CalendarX2 size={26} />}
+              title="No events found"
+              subtitle="Try a different category, clear the search, or check back soon — new events drop every week."
+              action={
+                <button
+                  onClick={() => {
+                    setQuery("");
+                    setCategory("All");
+                  }}
+                  className="rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 px-5 py-2.5 text-xs font-bold text-white"
+                >
+                  Clear filters
+                </button>
+              }
+            />
+          )
         ) : view === "grid" ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((e, i) => (
