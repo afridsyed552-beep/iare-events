@@ -11,7 +11,7 @@ events — all wrapped in a dark, glassmorphic UI with real WebGL 3D.
 
 | Area | What you can do |
 | --- | --- |
-| **Live hero** | Always-animating football stadium background: a player walks, dribbles, juggles, sings & dances on the pitch with a bouncing ball, floating musical notes, cheering crowd, floodlights and dusk sky — plus mouse parallax |
+| **Live hero** | Always-animating football stadium background: a whole squad of players acts independently — each walks & dribbles, juggles, dances & sings (with floating notes), sprints or cheers on their own random schedule, with bouncing balls, cheering crowd, floodlights and dusk sky — plus mouse parallax |
 | **Events hub** | Filter by category, live search, sort (soonest / popular / almost-full), grid ↔ list views, completed-event toggle |
 | **Event pages** | Countdown timer, capacity bar, attendee avatars, RSVP / save / share, points, prizes, similar events |
 | **Clubs** | 9 societies with 3D tilt cards, join/leave membership, officers, achievements, socials, club event lists |

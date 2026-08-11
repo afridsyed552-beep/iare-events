@@ -2,12 +2,13 @@ import { useEffect, useRef } from "react";
 
 /**
  * LiveGround — an always-animating football stadium scene rendered on canvas.
- * A player walks, dribbles, juggles, sings and dances on the pitch, with a
- * bouncing football, floating musical notes, cheering crowd, floodlights and
- * a dusk sky. It runs continuously, so the background is "live".
+ * A whole squad of players acts independently on the pitch: each one walks &
+ * dribbles, juggles, dances & sings, sprints or cheers on their own random
+ * schedule, in their own lane, at their own depth/speed, with floating
+ * musical notes, cheering crowd, floodlights and a dusk sky.
  */
 
-type Mode = "walk" | "juggle" | "dance" | "sprint";
+type Mode = "walk" | "juggle" | "dance" | "sprint" | "idle";
 
 interface Note {
   x: number;
@@ -15,6 +16,7 @@ interface Note {
   life: number;
   glyph: string;
   seed: number;
+  color: string;
 }
 
 interface Star {
@@ -24,10 +26,91 @@ interface Star {
   tw: number;
 }
 
+interface PState {
+  x: number;
+  yFrac: number;
+  scale: number;
+  speedMul: number;
+  laneMin: number;
+  laneMax: number;
+  facing: 1 | -1;
+  mode: Mode;
+  modeT: number;
+  duration: number;
+  phase: number;
+  hasBall: boolean;
+  danceSeed: number;
+  noteTimer: number;
+  jersey: string;
+  shorts: string;
+  skin: string;
+  hair: string;
+  number: string;
+  noteColor: string;
+}
+
 const CROWD_COLORS = [
   "#a78bfa", "#22d3ee", "#f472b6", "#fbbf24", "#34d399", "#f87171", "#818cf8", "#e879f9",
 ];
 const NOTES = ["♪", "♫", "♩", "♬"];
+const MODE_POOL: Mode[] = ["walk", "juggle", "dance", "sprint", "idle"];
+
+function nextMode(prev: Mode): { mode: Mode; duration: number } {
+  let mode: Mode;
+  do {
+    mode = MODE_POOL[Math.floor(Math.random() * MODE_POOL.length)]!;
+  } while (mode === prev);
+  const duration: Record<Mode, number> = {
+    walk: 4 + Math.random() * 2.5,
+    sprint: 3 + Math.random() * 1.5,
+    juggle: 3.2 + Math.random() * 2,
+    dance: 4.5 + Math.random() * 3.5,
+    idle: 2.2 + Math.random() * 2,
+  };
+  return { mode, duration: duration[mode] };
+}
+
+/** Squad roster — each player has their own lane, depth, speed and look. */
+function makeSquad(): PState[] {
+  const defs: Array<
+    Partial<PState> & { yFrac: number; laneMin: number; laneMax: number }
+  > = [
+    { yFrac: 0.8, laneMin: 0.16, laneMax: 0.84, scale: 1.0, speedMul: 1.0, hasBall: true, jersey: "#8b5cf6", shorts: "#1e1b4b", number: "10", noteColor: "#e879f9" },
+    { yFrac: 0.705, laneMin: 0.08, laneMax: 0.58, scale: 0.8, speedMul: 0.85, hasBall: true, jersey: "#22d3ee", shorts: "#164e63", number: "7", noteColor: "#67e8f9" },
+    { yFrac: 0.665, laneMin: 0.5, laneMax: 0.96, scale: 0.72, speedMul: 0.78, hasBall: false, jersey: "#f472b6", shorts: "#831843", number: "9", noteColor: "#f9a8d4" },
+    { yFrac: 0.63, laneMin: 0.24, laneMax: 0.78, scale: 0.62, speedMul: 0.66, hasBall: true, jersey: "#fbbf24", shorts: "#78350f", number: "5", noteColor: "#fde68a" },
+    { yFrac: 0.6, laneMin: 0.52, laneMax: 0.9, scale: 0.55, speedMul: 0.6, hasBall: false, jersey: "#34d399", shorts: "#064e3b", number: "3", noteColor: "#6ee7b7" },
+    { yFrac: 0.585, laneMin: 0.1, laneMax: 0.45, scale: 0.5, speedMul: 0.55, hasBall: false, jersey: "#f87171", shorts: "#7f1d1d", number: "2", noteColor: "#fca5a5" },
+  ];
+
+  return defs.map((d, i) => {
+    const skins = ["#f2c094", "#8d5a3b", "#c68642", "#f2c094", "#e8b48c"];
+    const hairs = ["#3f2d20", "#111111", "#7a4a12", "#1f2937", "#3f2d20"];
+    const initial = nextMode(i % 2 === 0 ? "idle" : "walk");
+    return {
+      x: d.laneMin + Math.random() * (d.laneMax - d.laneMin),
+      yFrac: d.yFrac,
+      scale: d.scale ?? 0.6,
+      speedMul: d.speedMul ?? 0.7,
+      laneMin: d.laneMin,
+      laneMax: d.laneMax,
+      facing: Math.random() < 0.5 ? 1 : -1,
+      mode: initial.mode,
+      modeT: Math.random() * initial.duration,
+      duration: initial.duration,
+      phase: Math.random() * Math.PI * 2,
+      hasBall: d.hasBall ?? false,
+      danceSeed: Math.random() * Math.PI * 2,
+      noteTimer: Math.random() * 0.4,
+      jersey: d.jersey ?? "#8b5cf6",
+      shorts: d.shorts ?? "#1e1b4b",
+      skin: skins[i % skins.length]!,
+      hair: hairs[i % hairs.length]!,
+      number: d.number ?? `${i + 1}`,
+      noteColor: d.noteColor ?? "#e879f9",
+    };
+  });
+}
 
 export default function LiveGround() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -77,6 +160,8 @@ export default function LiveGround() {
       }
     }
 
+    const players: PState[] = makeSquad();
+    const notes: Note[] = [];
     const pointer = { x: 0.5, y: 0.5 };
     const onMove = (e: MouseEvent) => {
       pointer.x = e.clientX / w;
@@ -84,18 +169,8 @@ export default function LiveGround() {
     };
     window.addEventListener("mousemove", onMove, { passive: true });
 
-    const anim = { phase: 0, noteTimer: 0 };
-    const notes: Note[] = [];
     let raf = 0;
     let last = performance.now();
-
-    const modeAt = (t: number): Mode => {
-      const m = t % 18;
-      if (m < 5) return "walk";
-      if (m < 8.5) return "juggle";
-      if (m < 14) return "dance";
-      return "sprint";
-    };
 
     // ---- drawing helpers ----
     const drawSky = (t: number) => {
@@ -106,7 +181,6 @@ export default function LiveGround() {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, w, h * 0.58);
 
-      // stars
       for (const s of stars) {
         const a = 0.25 + 0.35 * Math.abs(Math.sin(t * 0.7 + s.tw));
         ctx.globalAlpha = a;
@@ -117,7 +191,6 @@ export default function LiveGround() {
       }
       ctx.globalAlpha = 1;
 
-      // moon
       const mx = w * 0.78;
       const my = h * 0.14;
       const mg = ctx.createRadialGradient(mx, my, 0, mx, my, 90);
@@ -133,7 +206,6 @@ export default function LiveGround() {
       ctx.arc(mx, my, 16, 0, Math.PI * 2);
       ctx.fill();
 
-      // drifting clouds
       ctx.fillStyle = "rgba(199,210,254,0.10)";
       for (let i = 0; i < 3; i++) {
         const cx = ((i * 0.4 + t * 0.006) % 1.25) * w - w * 0.15;
@@ -146,7 +218,6 @@ export default function LiveGround() {
     };
 
     const drawStands = (t: number) => {
-      // band of stands behind the pitch
       const y0 = h * 0.4;
       const y1 = h * 0.52;
       const g = ctx.createLinearGradient(0, y0, 0, y1);
@@ -155,7 +226,6 @@ export default function LiveGround() {
       ctx.fillStyle = g;
       ctx.fillRect(0, y0, w, y1 - y0);
 
-      // crowd dots
       for (const c of crowd) {
         const flick = 0.75 + 0.25 * Math.abs(Math.sin(t * 1.4 + c.x * 40 + c.y * 90));
         ctx.globalAlpha = flick;
@@ -164,7 +234,6 @@ export default function LiveGround() {
       }
       ctx.globalAlpha = 1;
 
-      // floodlights
       for (const side of [-1, 1]) {
         const fx = side === -1 ? w * 0.05 : w * 0.95;
         const baseY = h * 0.46;
@@ -175,7 +244,7 @@ export default function LiveGround() {
         ctx.moveTo(fx, baseY);
         ctx.lineTo(fx, headY);
         ctx.stroke();
-        // light cone
+
         const cone = ctx.createLinearGradient(0, headY, 0, h * 0.7);
         cone.addColorStop(0, "rgba(255,250,220,0.14)");
         cone.addColorStop(1, "rgba(255,250,220,0)");
@@ -187,7 +256,7 @@ export default function LiveGround() {
         ctx.lineTo(fx + side * w * 0.15, h * 0.72);
         ctx.closePath();
         ctx.fill();
-        // lamp glow
+
         const lg = ctx.createRadialGradient(fx, headY, 0, fx, headY, 26);
         lg.addColorStop(0, "rgba(255,250,220,0.9)");
         lg.addColorStop(1, "rgba(255,250,220,0)");
@@ -203,7 +272,6 @@ export default function LiveGround() {
       const topW = w * 0.62;
       const xMid = w / 2;
 
-      // base turf
       ctx.fillStyle = "#0c5c34";
       ctx.beginPath();
       ctx.moveTo(xMid - topW / 2, topY);
@@ -213,7 +281,6 @@ export default function LiveGround() {
       ctx.closePath();
       ctx.fill();
 
-      // mow stripes (perspective trapezoids)
       const stripes = 6;
       for (let k = 0; k < stripes; k++) {
         if (k % 2 === 1) continue;
@@ -233,31 +300,25 @@ export default function LiveGround() {
         ctx.fill();
       }
 
-      // pitch lines
       ctx.strokeStyle = "rgba(255,255,255,0.5)";
       ctx.lineWidth = 2;
-      // touchlines
       ctx.beginPath();
       ctx.moveTo(xMid - topW / 2, topY);
       ctx.lineTo(0, h);
       ctx.moveTo(xMid + topW / 2, topY);
       ctx.lineTo(w, h);
-      // halfway
       ctx.moveTo(xMid, topY);
       ctx.lineTo(xMid, h);
-      // center circle
       const midY = (topY + h) / 2;
       ctx.moveTo(xMid + w * 0.1, midY);
       ctx.ellipse(xMid, midY, w * 0.1, w * 0.055, 0, 0, Math.PI * 2);
       ctx.stroke();
 
-      // penalty box (viewer side, stylized)
       ctx.strokeStyle = "rgba(255,255,255,0.35)";
       ctx.lineWidth = 1.5;
       ctx.strokeRect(w * 0.3, h * 0.9, w * 0.4, h * 0.1 - 2);
       ctx.strokeRect(w * 0.4, h * 0.945, w * 0.2, h * 0.055);
 
-      // far goal
       ctx.strokeStyle = "rgba(255,255,255,0.75)";
       ctx.lineWidth = 2.5;
       const gx = xMid;
@@ -270,7 +331,6 @@ export default function LiveGround() {
       ctx.moveTo(gx - 20, gy - 42);
       ctx.lineTo(gx + 20, gy - 42);
       ctx.stroke();
-      // net
       ctx.strokeStyle = "rgba(255,255,255,0.18)";
       ctx.lineWidth = 0.8;
       for (let i = 1; i < 4; i++) {
@@ -287,86 +347,103 @@ export default function LiveGround() {
       }
     };
 
+    /** Draw a player with feet at origin (caller applies translate/scale). */
     const drawPlayer = (
-      x: number,
-      feetY: number,
       facing: number,
       phase: number,
       mode: Mode,
-      t: number
+      t: number,
+      p: PState
     ) => {
-      const skin = "#f2c094";
-      const jersey = "#8b5cf6";
-      const shorts = "#1e1b4b";
-      const hair = "#3f2d20";
-      const sock = "#ffffff";
+      const skin = p.skin;
+      const jersey = p.jersey;
+      const shorts = p.shorts;
+      const hair = p.hair;
 
       // shadow
       ctx.fillStyle = "rgba(0,0,0,0.38)";
       ctx.beginPath();
-      ctx.ellipse(x, feetY, 20, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 2, 20, 5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // dance bounce
-      const bounce = mode === "dance" ? Math.abs(Math.sin(t * 3.2)) * 5 : 0;
-      const py = feetY - bounce;
+      // dance / idle bounce
+      const bounce =
+        mode === "dance"
+          ? Math.abs(Math.sin(t * 3.2 + p.danceSeed)) * 6
+          : mode === "idle"
+            ? Math.abs(Math.sin(t * 2 + p.danceSeed)) * 2
+            : 0;
+      ctx.save();
+      ctx.translate(0, -bounce);
 
       // legs
-      const legSwing = mode === "dance" ? Math.sin(t * 4.2) * 16 : Math.sin(phase) * 15;
+      const legSwing =
+        mode === "dance"
+          ? Math.sin(t * 4.2 + p.danceSeed) * 16
+          : mode === "idle"
+            ? Math.sin(t * 2.4 + p.danceSeed) * 3
+            : Math.sin(phase) * 15;
       ctx.strokeStyle = shorts;
       ctx.lineWidth = 5;
       ctx.lineCap = "round";
-      const hipY = py - 26;
+      const hipY = -26;
       for (const s of [-1, 1]) {
-        const footX = x + s * legSwing * facing;
-        const footY = py;
+        const footX = s * legSwing * facing;
+        const footY = 0;
         ctx.beginPath();
-        ctx.moveTo(x, hipY);
-        ctx.quadraticCurveTo(x + s * 7 * facing, hipY + 9, footX, footY);
+        ctx.moveTo(0, hipY);
+        ctx.quadraticCurveTo(s * 7 * facing, hipY + 9, footX, footY);
         ctx.stroke();
-        // shoe
         ctx.fillStyle = "#111827";
         ctx.beginPath();
         ctx.ellipse(footX + facing * 5, footY, 5.5, 3.2, 0, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // torso (jersey)
+      // torso
       ctx.fillStyle = jersey;
       ctx.beginPath();
-      ctx.moveTo(x - 9 * facing, hipY);
-      ctx.lineTo(x + 9 * facing, hipY);
-      ctx.lineTo(x + 12 * facing, hipY - 22);
-      ctx.lineTo(x - 12 * facing, hipY - 22);
+      ctx.moveTo(-9 * facing, hipY);
+      ctx.lineTo(9 * facing, hipY);
+      ctx.lineTo(12 * facing, hipY - 22);
+      ctx.lineTo(-12 * facing, hipY - 22);
       ctx.closePath();
       ctx.fill();
-      // jersey number
       ctx.fillStyle = "rgba(255,255,255,0.85)";
       ctx.font = "bold 10px Inter, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("10", x, hipY - 8);
+      ctx.fillText(p.number, 0, hipY - 8);
 
       // arms
       const shoulderY = hipY - 20;
-      const armSwing = mode === "dance" ? Math.sin(t * 4.2 + Math.PI) * 0.9 : Math.sin(phase + Math.PI) * 0.6;
       ctx.strokeStyle = jersey;
       ctx.lineWidth = 4.5;
       for (const s of [-1, 1]) {
-        const shX = x + s * 10 * facing;
+        const shX = s * 10 * facing;
         if (mode === "dance") {
-          // arms up, waving
-          const up = Math.PI / 2 - 0.35 + Math.sin(t * 6 + s) * 0.25;
+          const up = Math.PI / 2 - 0.35 + Math.sin(t * 6 + s + p.danceSeed) * 0.3;
           ctx.beginPath();
           ctx.moveTo(shX, shoulderY);
           ctx.lineTo(shX + Math.cos(up) * s * 16, shoulderY - Math.sin(up) * 16);
           ctx.stroke();
-          // hand
+          ctx.fillStyle = skin;
+          ctx.beginPath();
+          ctx.arc(shX + Math.cos(up) * s * 16, shoulderY - Math.sin(up) * 16, 3, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (mode === "idle" && s === -1) {
+          // cheer: one arm waving up
+          const wave = Math.sin(t * 5 + p.danceSeed) * 0.35;
+          const up = Math.PI / 2 - 0.25 + wave;
+          ctx.beginPath();
+          ctx.moveTo(shX, shoulderY);
+          ctx.lineTo(shX + Math.cos(up) * s * 16, shoulderY - Math.sin(up) * 16);
+          ctx.stroke();
           ctx.fillStyle = skin;
           ctx.beginPath();
           ctx.arc(shX + Math.cos(up) * s * 16, shoulderY - Math.sin(up) * 16, 3, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          const a = armSwing * s;
+          const a = Math.sin(phase + Math.PI) * 0.6 * s;
           ctx.beginPath();
           ctx.moveTo(shX, shoulderY);
           ctx.quadraticCurveTo(shX + Math.sin(a) * 10 * facing, shoulderY + 10, shX + Math.sin(a) * 18 * facing, shoulderY + 16);
@@ -378,43 +455,44 @@ export default function LiveGround() {
       const headY = hipY - 30;
       ctx.fillStyle = skin;
       ctx.beginPath();
-      ctx.arc(x, headY, 7.5, 0, Math.PI * 2);
+      ctx.arc(0, headY, 7.5, 0, Math.PI * 2);
       ctx.fill();
-      // hair
       ctx.fillStyle = hair;
       ctx.beginPath();
-      ctx.arc(x, headY - 2, 7.5, Math.PI * 0.95, Math.PI * 2.05);
+      ctx.arc(0, headY - 2, 7.5, Math.PI * 0.95, Math.PI * 2.05);
       ctx.fill();
-      // headband (sporty)
-      ctx.strokeStyle = sock;
+      ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(x, headY - 0.5, 7.5, Math.PI * 0.62, Math.PI * 1.38);
+      ctx.arc(0, headY - 0.5, 7.5, Math.PI * 0.62, Math.PI * 1.38);
       ctx.stroke();
+
+      ctx.restore();
     };
 
-    const drawBall = (x: number, y: number, squash = 0) => {
+    /** Draw a ball at origin with scale applied by caller. */
+    const drawBall = (squash: number) => {
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.beginPath();
-      ctx.ellipse(x, y + 6, 8, 3, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 6, 8, 3, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.ellipse(x, y, 7 + squash * 1.4, 7 - squash, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, 7 + squash * 1.4, 7 - squash, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#1f2937";
       ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(x - 5, y + 1);
-      ctx.lineTo(x + 5, y - 1);
-      ctx.moveTo(x, y - 5);
-      ctx.lineTo(x, y + 5);
-      ctx.moveTo(x - 4, y - 3);
-      ctx.lineTo(x + 4, y + 3);
+      ctx.moveTo(-5, 1);
+      ctx.lineTo(5, -1);
+      ctx.moveTo(0, -5);
+      ctx.lineTo(0, 5);
+      ctx.moveTo(-4, -3);
+      ctx.lineTo(4, 3);
       ctx.stroke();
       ctx.fillStyle = "#1f2937";
       ctx.beginPath();
-      ctx.arc(x, y, 2.6, 0, Math.PI * 2);
+      ctx.arc(0, 0, 2.6, 0, Math.PI * 2);
       ctx.fill();
     };
 
@@ -422,71 +500,102 @@ export default function LiveGround() {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const t = now / 1000;
-      const mode = modeAt(t);
 
-      // phase accumulates for walk cycles
-      anim.phase += dt * (mode === "sprint" ? 13 : mode === "walk" ? 8 : mode === "dance" ? 5 : 3);
+      // ---- update each player independently ----
+      for (const p of players) {
+        p.modeT += dt;
+        if (p.modeT >= p.duration) {
+          const n = nextMode(p.mode);
+          p.mode = n.mode;
+          p.duration = n.duration;
+          p.modeT = 0;
+        }
 
+        const phaseSpeed =
+          p.mode === "sprint" ? 13 : p.mode === "walk" ? 8 : p.mode === "dance" ? 5 : p.mode === "juggle" ? 2 : 1;
+        p.phase += dt * phaseSpeed * p.speedMul;
+
+        // lane movement
+        const base = w * 0.05 * p.speedMul * p.scale;
+        if (p.mode === "walk" || p.mode === "sprint") {
+          const speed = base * (p.mode === "sprint" ? 2.1 : 1);
+          p.x += p.facing * speed * dt;
+          if (p.x >= p.laneMax * w) {
+            p.x = p.laneMax * w;
+            p.facing = -1;
+          } else if (p.x <= p.laneMin * w) {
+            p.x = p.laneMin * w;
+            p.facing = 1;
+          }
+        } else if (p.mode === "dance") {
+          p.x += Math.sin(t * 2.4 + p.danceSeed) * w * 0.012 * dt * 60;
+          p.x = Math.max(p.laneMin * w, Math.min(p.laneMax * w, p.x));
+          p.facing = Math.cos(t * 2.4 + p.danceSeed) >= 0 ? 1 : -1;
+          // spawn musical notes while singing
+          p.noteTimer += dt;
+          if (p.noteTimer > 0.28 && notes.length < 60) {
+            p.noteTimer = 0;
+            notes.push({
+              x: p.x + (Math.random() - 0.5) * 30 * p.scale,
+              y: p.yFrac * h - 96 * p.scale,
+              life: 1,
+              glyph: NOTES[Math.floor(Math.random() * NOTES.length)]!,
+              seed: Math.random() * Math.PI * 2,
+              color: p.noteColor,
+            });
+          }
+        }
+      }
+
+      // ---- render ----
       ctx.clearRect(0, 0, w, h);
       drawSky(t);
       drawStands(t);
 
-      // mouse parallax on the pitch layer
       const shift = (pointer.x - 0.5) * 14;
       ctx.save();
       ctx.translate(shift, 0);
-
       drawPitch();
 
-      // player motion
-      const local = t % 18;
-      let px = w * 0.5;
-      let py = h * 0.8;
-      let facing = 1;
-      let ballX = px;
-      let ballY = py;
-      let ballBounce = 0;
+      // players sorted far → near for correct depth overlap
+      const sorted = [...players].sort((a, b) => a.yFrac - b.yFrac);
+      for (const p of sorted) {
+        const feetY = p.yFrac * h;
+        ctx.save();
+        ctx.translate(p.x, feetY);
+        ctx.scale(p.scale, p.scale);
 
-      if (mode === "walk" || mode === "sprint") {
-        const u = local / (mode === "walk" ? 5 : 4);
-        const start = mode === "walk" ? w * 0.16 : w * 0.82;
-        const end = mode === "walk" ? w * 0.82 : w * 0.16;
-        px = start + (end - start) * (1 - Math.cos(u * Math.PI)) / 2;
-        facing = u < 0.5 ? 1 : -1;
-        const ph = anim.phase;
-        ballBounce = Math.abs(Math.sin(ph * 2.2)) * 6;
-        ballX = px - facing * 20;
-        ballY = py - ballBounce;
-      } else if (mode === "juggle") {
-        px = w * 0.82;
-        facing = -1;
-        const b = Math.abs(Math.sin(t * 5.5));
-        ballX = px + facing * 8;
-        ballY = py - 8 - b * 58;
-      } else {
-        // dance
-        px = w * 0.82 + Math.sin(t * 2.4) * w * 0.05;
-        facing = Math.cos(t * 2.4) >= 0 ? 1 : -1;
-        ballX = px - facing * 34;
-        ballY = py;
-        // spawn musical notes while singing/dancing
-        anim.noteTimer += dt;
-        if (anim.noteTimer > 0.24 && notes.length < 40) {
-          anim.noteTimer = 0;
-          notes.push({
-            x: px + (Math.random() - 0.5) * 40,
-            y: py - 96,
-            life: 1,
-            glyph: NOTES[Math.floor(Math.random() * NOTES.length)]!,
-            seed: Math.random() * Math.PI * 2,
-          });
+        // ball behaviour per mode
+        if (p.hasBall) {
+          if (p.mode === "walk" || p.mode === "sprint") {
+            const b = Math.abs(Math.sin(p.phase * 2.2)) * 6;
+            ctx.save();
+            ctx.translate(-p.facing * 20, -b);
+            ctx.scale(p.scale, p.scale);
+            drawBall(Math.abs(Math.sin(t * 6)) * 0.35);
+            ctx.restore();
+          } else if (p.mode === "juggle") {
+            const b = Math.abs(Math.sin(t * 5.5 + p.danceSeed)) * 58;
+            ctx.save();
+            ctx.translate(p.facing * 8, -10 - b);
+            ctx.scale(p.scale, p.scale);
+            drawBall(0.2);
+            ctx.restore();
+          } else {
+            // idle / dance: ball resting, gentle bob
+            ctx.save();
+            ctx.translate(p.facing * 8, -6 + Math.sin(t * 3 + p.danceSeed) * 1.5);
+            ctx.scale(p.scale, p.scale);
+            drawBall(0.1);
+            ctx.restore();
+          }
         }
+
+        drawPlayer(p.facing, p.phase, p.mode, t, p);
+        ctx.restore();
       }
 
-      drawBall(ballX, ballY, Math.abs(Math.sin(t * 6)) * 0.35);
-      drawPlayer(px, py, facing, anim.phase, mode, t);
-
-      // floating musical notes
+      // floating musical notes (world coords)
       for (let i = notes.length - 1; i >= 0; i--) {
         const n = notes[i]!;
         n.y -= dt * 46;
@@ -497,8 +606,8 @@ export default function LiveGround() {
           continue;
         }
         ctx.globalAlpha = n.life * 0.9;
-        ctx.fillStyle = n.seed % 2 < 1 ? "#e879f9" : "#67e8f9";
-        ctx.font = `${16 + n.life * 10}px serif`;
+        ctx.fillStyle = n.color;
+        ctx.font = `${14 + n.life * 10}px serif`;
         ctx.textAlign = "center";
         ctx.fillText(n.glyph, n.x, n.y);
       }
@@ -510,14 +619,18 @@ export default function LiveGround() {
     };
 
     if (reduced) {
-      // static single frame for reduced-motion users
       const t = 3;
       ctx.clearRect(0, 0, w, h);
       drawSky(t);
       drawStands(t);
       drawPitch();
-      drawBall(w * 0.5 - 20, h * 0.8, 0);
-      drawPlayer(w * 0.5, h * 0.8, 1, 0, "walk", t);
+      for (const p of players) {
+        ctx.save();
+        ctx.translate(p.x, p.yFrac * h);
+        ctx.scale(p.scale, p.scale);
+        drawPlayer(p.facing, 0, "walk", t, p);
+        ctx.restore();
+      }
     } else {
       raf = requestAnimationFrame(loop);
     }
