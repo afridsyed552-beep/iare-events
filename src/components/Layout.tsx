@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import Toasts from "./Toasts";
+import CursorTrail from "./CursorTrail";
 import { AmbientOrbs } from "./visuals";
 
 function ScrollToTop() {
@@ -54,6 +55,7 @@ export default function Layout() {
       </main>
       <Footer />
       <Fab />
+      <CursorTrail />
       <Toasts />
     </div>
   );
