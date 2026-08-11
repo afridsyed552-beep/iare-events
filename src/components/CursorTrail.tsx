@@ -183,7 +183,7 @@ export default function CursorTrail() {
       if (plane.complete && plane.naturalWidth > 0) {
         // maintain the image's aspect ratio; ~46px tall at 1x
         const aspect = plane.naturalWidth / plane.naturalHeight;
-        const hh = 46 * scale * fade;
+        const hh = 30 * scale * fade;
         const hw = hh * aspect;
         ctx.save();
         ctx.translate(m.x, m.y);
